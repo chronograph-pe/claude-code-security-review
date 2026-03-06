@@ -619,6 +619,7 @@ def main():
             'pr_number': pr_number,
             'repo': repo_name,
             'findings': kept_findings,
+            'scanned_files': [f['filename'] for f in pr_data.get('files', [])],
             'analysis_summary': results.get('analysis_summary', {}),
             'filtering_summary': {
                 'total_original_findings': len(original_findings),

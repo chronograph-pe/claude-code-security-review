@@ -88,6 +88,12 @@ function addReactionsToReview(reviewId) {
   }
 }
 
+function buildScannedFilesSection(scannedFiles) {
+  if (!scannedFiles || scannedFiles.length === 0) return '';
+  const fileList = scannedFiles.map(f => `- \`${f}\``).join('\n');
+  return `\n\n<details>\n<summary>Files scanned (${scannedFiles.length})</summary>\n\n${fileList}\n</details>`;
+}
+
 async function run() {
   try {
     // Read the findings
@@ -99,7 +105,16 @@ async function run() {
       console.log('Could not read findings file');
       return;
     }
-    
+
+    // Read scanned files from full results
+    let scannedFiles = [];
+    try {
+      const resultsData = fs.readFileSync('claudecode-results.json', 'utf8');
+      scannedFiles = JSON.parse(resultsData).scanned_files || [];
+    } catch (e) {
+      console.log('Could not read scanned files from results');
+    }
+
     if (newFindings.length === 0) {
       return;
     }
@@ -192,6 +207,7 @@ async function run() {
       const reviewData = {
         commit_id: context.payload.pull_request.head.sha,
         event: 'COMMENT',
+        body: `🤖 **ClaudeCode Security Review** — ${reviewComments.length} finding(s) detected.${buildScannedFilesSection(scannedFiles)}`,
         comments: reviewComments
       };
       
