@@ -323,12 +323,13 @@ runs:
         if-no-files-found: ignore
     
     - name: Comment PR with findings
-      if: github.event_name == 'pull_request' && inputs.comment-pr == 'true' && steps.claudecode-check.outputs.enable_claudecode == 'true'
+      if: inputs.comment-pr == 'true' && steps.claudecode-check.outputs.enable_claudecode == 'true' && (github.event_name == 'pull_request' || inputs.pr-number != '')
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
         CLAUDECODE_FINDINGS: ${{ steps.claudecode-scan.outputs.findings_count }}
         SILENCE_CLAUDECODE_COMMENTS: ${{ steps.claudecode-check.outputs.silence_claudecode_comments }}
+        PR_NUMBER: ${{ inputs.pr-number || github.event.pull_request.number }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         node "$ACTION_PATH/scripts/comment-pr-findings.js"

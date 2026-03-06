@@ -8,16 +8,20 @@ const fs = require('fs');
 const { spawnSync } = require('child_process');
 
 // Parse GitHub context from environment
+const eventPayload = process.env.GITHUB_EVENT_PATH
+  ? JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'))
+  : {};
+
 const context = {
   repo: {
     owner: process.env.GITHUB_REPOSITORY?.split('/')[0] || '',
     repo: process.env.GITHUB_REPOSITORY?.split('/')[1] || ''
   },
   issue: {
-    number: parseInt(process.env.GITHUB_EVENT_PATH ? JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request?.number : '') || 0
+    number: parseInt(eventPayload.pull_request?.number) || parseInt(process.env.PR_NUMBER) || 0
   },
   payload: {
-    pull_request: process.env.GITHUB_EVENT_PATH ? JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8')).pull_request : {}
+    pull_request: eventPayload.pull_request || {}
   }
 };
 
@@ -202,10 +206,17 @@ async function run() {
       return;
     }
         
+    // Get commit SHA — available in event for pull_request, must be fetched for workflow_dispatch
+    let headSha = context.payload.pull_request?.head?.sha;
+    if (!headSha) {
+      const prData = ghApi(`/repos/${context.repo.owner}/${context.repo.repo}/pulls/${context.issue.number}`);
+      headSha = prData.head.sha;
+    }
+
     try {
       // Create a review with all the comments
       const reviewData = {
-        commit_id: context.payload.pull_request.head.sha,
+        commit_id: headSha,
         event: 'COMMENT',
         body: `🤖 **ClaudeCode Security Review** — ${reviewComments.length} finding(s) detected.${buildScannedFilesSection(scannedFiles)}`,
         comments: reviewComments
@@ -234,7 +245,7 @@ async function run() {
             line: comment.line,
             side: comment.side,
             body: comment.body,
-            commit_id: context.payload.pull_request.head.sha
+            commit_id: headSha
           };
           
           const commentResponse = ghApi(`/repos/${context.repo.owner}/${context.repo.repo}/pulls/${context.issue.number}/comments`, 'POST', commentData);
